@@ -138,11 +138,11 @@ class KeyManager:
         return self.states[keyCode] if keyCode in self.states else False
 
 def createCircle(canvas, x, y, radius, color):
-    return canvas.create_oval(x-radius, y-radius, x+radius, y+radius, outline=color, tag='moving')
+    return canvas.create_oval(x-radius, y-radius, x+radius, y+radius, fill=color, tag='moving')
 
 def createPod(canvas, pod, color, grid):
     collisions = findSensorsCollisions(pod, grid)
-    pod.sensorsDraw = list(map(lambda c: createCircle(canvas, c[1].x, c[1].y, 10, 'red'), collisions))
+    pod.sensorsDraw = list(map(lambda c: createCircle(canvas, c[1].x, c[1].y, 5, 'red'), collisions))
     pod.circle = createCircle(canvas, pod.position.x, pod.position.y, POD_RADIUS, color)
     # pod.line = canvas.create_line(
     #     pod.position.x,
@@ -205,29 +205,22 @@ def train():
         Xextracted = []
         yextracted = []
         for row in reader:
-            print("Cake: ", row)
             Xextracted.append(list(map(int,row[0:9])))
             yextracted.append(list(map(int,row[9:10])))
-        print("Xextracted: ", Xextracted)
-        print("yextracted: ", yextracted)
 
-    classifier = MLPClassifier(hidden_layer_sizes=(300,300,300),max_iter=1000000)
+    classifier = MLPClassifier(hidden_layer_sizes=(NB_SENSORS,NB_SENSORS,NB_SENSORS))
 
     # INPUT : X et y
 
     # Tranformations
-    print("Before Fit")
     scaler = StandardScaler().fit(Xextracted)
-    print("Before Transform")
     Xnp = scaler.transform(Xextracted)
-    print("After Transform")
     ynp = np.array(yextracted)
 
+    print("Xnp: ", Xnp.shape)
+    print("ynp: ", ynp.shape)
 
-
-    X_train, X_test, y_train, y_test = train_test_split(Xnp, ynp, test_size=0.33)
-
-    print("Dim : ", X_train.shape, y_train.shape)
+    X_train, X_test, y_train, y_test = train_test_split(Xnp, ynp)
 
     # OUTPUT
     classifier.fit(X_train, y_train.ravel())
@@ -241,7 +234,7 @@ def train():
 def writeData():
     global X,y
 
-    print(X, y)
+    print("Writing data ... (x dim = ", len(X), ", y dim = ", len(y), ")")
 
     dataToWrite = [X[i] + y[i] for i in range(len(X))]
 
@@ -278,15 +271,12 @@ def showMove(canvas, state, grid, root, keyManager, classifier=None, scaler=None
     else:
         collisions = findSensorsCollisions(state.pod,grid)
         distances = list(map(lambda c: c[0],collisions))
-        print("before predict")
         X_scaled = scaler.transform(np.array(distances).reshape(1, -1))
         y_pred = classifier.predict(X_scaled)
-        print("Pred : ", y_pred)
+        # print("Pred : ", y_pred)
 
         if y_pred[0] == 1: state.pod.angle -= ROTATE_ANGLE
         elif y_pred[0] == 2: state.pod.angle += ROTATE_ANGLE
-        else:
-            print("nothing : ", y_pred[0])
 
     state = updateGame(state, state.pod.angle, state.pod.power)
     state.pod.updateDraw(canvas,grid)
