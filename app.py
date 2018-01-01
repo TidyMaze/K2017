@@ -216,13 +216,16 @@ def train():
     # INPUT : X et y
 
     # Tranformations
+    print("Before Fit")
     scaler = StandardScaler().fit(Xextracted)
+    print("Before Transform")
     Xnp = scaler.transform(Xextracted)
+    print("After Transform")
     ynp = np.array(yextracted)
 
 
 
-    X_train, X_test, y_train, y_test = train_test_split(Xnp, ynp, test_size=0.83)
+    X_train, X_test, y_train, y_test = train_test_split(Xnp, ynp, test_size=0.33)
 
     print("Dim : ", X_train.shape, y_train.shape)
 
@@ -275,6 +278,7 @@ def showMove(canvas, state, grid, root, keyManager, classifier=None, scaler=None
     else:
         collisions = findSensorsCollisions(state.pod,grid)
         distances = list(map(lambda c: c[0],collisions))
+        print("before predict")
         X_scaled = scaler.transform(np.array(distances).reshape(1, -1))
         y_pred = classifier.predict(X_scaled)
         print("Pred : ", y_pred)
