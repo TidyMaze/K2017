@@ -19,9 +19,9 @@ ai = len(sys.argv) > 1 and sys.argv[1] == "AI"
 human = not ai
 
 POD_RADIUS = 10
-STEP = 5
+STEP = 2
 
-SPEED = 4
+SPEED = 3
 
 NB_SENSORS = 9
 ROTATE_ANGLE = 5
@@ -29,8 +29,8 @@ ROTATE_ANGLE = 5
 WINDOW_HEIGHT = 800
 WINDOW_WIDTH = 1000
 
-CELL_WIDTH = 30
-CELL_HEIGHT = 30
+CELL_WIDTH = 40
+CELL_HEIGHT = 40
 
 X = []
 y = []
@@ -74,8 +74,8 @@ class Pod:
             # print(self.sensorsDraw)
             currentDraw = canvas.coords(self.sensorsDraw[i])
             (dst,point) = c
-            dX = point.x - (currentDraw[0]+POD_RADIUS)
-            dY = point.y - (currentDraw[1]+POD_RADIUS)
+            dX = point.x - (currentDraw[0]+5)
+            dY = point.y - (currentDraw[1]+5)
             if(dX == 0 and dY == 0): return
             canvas.move(self.sensorsDraw[i], dX, dY)
 
@@ -208,7 +208,7 @@ def train():
             Xextracted.append(list(map(int,row[0:9])))
             yextracted.append(list(map(int,row[9:10])))
 
-    classifier = MLPClassifier(hidden_layer_sizes=(NB_SENSORS,NB_SENSORS,NB_SENSORS))
+    classifier = MLPClassifier(hidden_layer_sizes=(NB_SENSORS,NB_SENSORS), max_iter=800,learning_rate_init=0.0001)
 
     # INPUT : X et y
 
@@ -225,6 +225,9 @@ def train():
     # OUTPUT
     classifier.fit(X_train, y_train.ravel())
     score = classifier.score(X_test, y_test)
+
+    print("Weights : ", classifier.coefs_)
+
     y_pred = classifier.predict(Xnp)
 
     # DISPLAY
@@ -248,8 +251,6 @@ def writeData():
 def showMove(canvas, state, grid, root, keyManager, classifier=None, scaler=None):
     # print("SHOW_MOVE")
 
-
-
     if human:
         # LEFT
         if keyManager.getState(37): state.pod.angle -= ROTATE_ANGLE
@@ -262,12 +263,6 @@ def showMove(canvas, state, grid, root, keyManager, classifier=None, scaler=None
         elif keyManager.getState(39) and not keyManager.getState(37): output = [2]
         else: output = [3]
 
-        collisions = findSensorsCollisions(state.pod,grid)
-        distances = list(map(lambda c: c[0],collisions))
-
-        X.append(distances)
-        y.append(output)
-        print(distances, output)
     else:
         collisions = findSensorsCollisions(state.pod,grid)
         distances = list(map(lambda c: c[0],collisions))
@@ -281,20 +276,29 @@ def showMove(canvas, state, grid, root, keyManager, classifier=None, scaler=None
     state = updateGame(state, state.pod.angle, state.pod.power)
     state.pod.updateDraw(canvas,grid)
 
+    isLost = lost(state,grid)
+    isWin = win(state, grid)
+
     if human:
-        if lost(state, grid):
+        if isLost:
             writeData()
             state.pod.reset(grid)
-        if win(state, grid):
+        else:
+            collisions = findSensorsCollisions(state.pod,grid)
+            distances = list(map(lambda c: c[0],collisions))
+            X.append(distances)
+            y.append(output)
+            print(distances, output)
+        if isWin:
             writeData()
             state.pod.reset(grid)
     else:
-        if lost(state, grid):
+        if isLost:
             c = train()
             scaler = c[0]
             classifier = c[1]
             state.pod.reset(grid)
-    canvas.after(33, lambda : showMove(canvas, state, grid, root, keyManager, classifier, scaler))
+    canvas.after(math.floor(1000/33), lambda : showMove(canvas, state, grid, root, keyManager, classifier, scaler))
 
 def updateGame(state, angle, power):
     # print('updating : before : ' + str(state))
@@ -319,23 +323,27 @@ def updateGame(state, angle, power):
 
 def main():
     grid = [
- "########################################",
- "#      #     #   1 #     #     #    2  #",
- "# S       #     #     #     #     #    #",
- "#     #############################    #",
- "# ###########      ###  # #### ###     #",
- "#                    ####         3    #",
- "#                       #    ###########",
- "#                       #  5           #",
- "#              # #      #   ############",
- "#             #   ##    #       6      #",
- "#             # 9  ##   ############## #",
- "#             #     ##               # #",
- "#             #      ################  #",
- "#             #            8          7#",
- "#             #######################  #",
- "#                                    # #",
- "########################################"
+ "###############################",
+ "#S      #         #       #   #",
+ "##### # ### ##### # ##### # ###",
+ "#     #     #   # # #     #   #",
+ "# ########### ### # ##### # # #",
+ "# #     #       # # #   # # # #",
+ "# ##### # ##### # # # # # ### #",
+ "#     # #     #   #   # #   # #",
+ "# ### # ##### ##### ### ### # #",
+ "#   # #     # #   # # #   # # #",
+ "##### # ### # # ### # ### # # #",
+ "#     # #   # #     #   # #   #",
+ "####### # ### # ##### # # ### #",
+ "#       # # # #       # #   # #",
+ "# # ##### # # ######### ### # #",
+ "# #   #     #   #     #   # # #",
+ "# ### ### ##### ##### # ### # #",
+ "# # #   # #   #     #   #   # #",
+ "# # ### ### # ##### ##### ### #",
+ "#     #     #     9       #   #",
+ "###############################"
 ]
 
     # print(grid)
