@@ -208,7 +208,7 @@ def train():
             Xextracted.append(list(map(int,row[0:9])))
             yextracted.append(list(map(int,row[9:10])))
 
-    classifier = MLPClassifier(hidden_layer_sizes=(NB_SENSORS,NB_SENSORS), max_iter=800,learning_rate_init=0.0001)
+    classifier = MLPClassifier(hidden_layer_sizes=(NB_SENSORS,NB_SENSORS,NB_SENSORS), max_iter=800,learning_rate_init=0.0001)
 
     # INPUT : X et y
 
