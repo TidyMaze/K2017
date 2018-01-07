@@ -217,8 +217,8 @@ def train():
         Xextracted = []
         yextracted = []
         for row in reader:
-            Xextracted.append(list(map(int,row[0:9])))
-            yextracted.append(list(map(int,row[9:10])))
+            Xextracted.append(list(map(float,row[:-1])))
+            yextracted.append(list(map(int,row[-1:])))
 
     classifier = MLPClassifier(hidden_layer_sizes=(NB_SENSORS,NB_SENSORS,NB_SENSORS), max_iter=1600,learning_rate_init=0.0001)
 
@@ -264,37 +264,45 @@ def writeData(won):
                             quotechar='|', quoting=csv.QUOTE_MINIMAL)
         spamwriter.writerows(dataToWrite)
 
+def findPointFromSymbol(grid, symbol):
+    gridPoint = [Point(j,i) for i in range(len(grid)) for j in range(len(grid[i])) if grid[i][j] == symbol][0]
+    return gridPointToPoint(gridPoint.x,gridPoint.y)
+
 def showMove(canvas, state, grid, root, keyManager, classifier=None, scaler=None):
     # print("SHOW_MOVE")
+
+    collisions = findSensorsCollisions(state.pod,grid)
+    distances = list(map(lambda c: c[0],collisions))
+
+    angle = state.pod.angle
+    pos = [state.pod.position.x, state.pod.position.y]
+
+    targetPoint = findPointFromSymbol(grid, '9')
+    target = [targetPoint.x, targetPoint.y]
+
+    dstToTarget = math.hypot(targetPoint.x - state.pod.position.x, targetPoint.y - state.pod.position.y)
+
+    turnRawInputs = [] + distances + [angle] + pos + target + [dstToTarget]
 
     if human:
         # LEFT
         if keyManager.getState(37): state.pod.angle -= ROTATE_ANGLE
         # RIGHT
         if keyManager.getState(39): state.pod.angle += ROTATE_ANGLE
-        # if keyManager.getState(38): state.pod.angle
-        # if keyManager.getState(40): state.pod.angle
-
         if keyManager.getState(37) and not keyManager.getState(39): output = [1]
         elif keyManager.getState(39) and not keyManager.getState(37): output = [2]
         else: output = [3]
 
     else:
-        collisions = findSensorsCollisions(state.pod,grid)
-        distances = list(map(lambda c: c[0],collisions))
-        X_scaled = scaler.transform(np.array(distances).reshape(1, -1))
+        X_scaled = scaler.transform(np.array(turnRawInputs).reshape(1, -1))
         y_pred = classifier.predict(X_scaled)
-
         output = [y_pred[0]]
-
         if output[0] == 1: state.pod.angle -= ROTATE_ANGLE
         elif output[0] == 2: state.pod.angle += ROTATE_ANGLE
 
-    collisions = findSensorsCollisions(state.pod,grid)
-    distances = list(map(lambda c: c[0],collisions))
-    X.append(distances)
+    X.append(turnRawInputs)
     y.append(output)
-    print(distances, output)
+    print(turnRawInputs, output)
 
     state = updateGame(state, state.pod.angle, state.pod.power)
     state.pod.updateDraw(canvas,grid)
