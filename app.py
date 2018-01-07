@@ -26,6 +26,8 @@ SPEED = 3
 NB_SENSORS = 9
 ROTATE_ANGLE = 5
 
+NB_TURNS_ALIVE = 10
+
 WINDOW_HEIGHT = 800
 WINDOW_WIDTH = 1000
 
@@ -234,12 +236,16 @@ def train():
     print("Score : ", score)
     return (scaler, classifier)
 
-def writeData():
+def writeData(won):
     global X,y
 
-    print("Writing data ... (x dim = ", len(X), ", y dim = ", len(y), ")")
+    assert len(X) == len(y)
 
-    dataToWrite = [X[i] + y[i] for i in range(len(X))]
+    nbToWrite = len(X) if won else max(0,len(X)-NB_TURNS_ALIVE)
+
+    print("Writing data ... (x dim = ", nbToWrite, ", y dim = ", nbToWrite, ")")
+
+    dataToWrite = [X[i] + y[i] for i in range(nbToWrite)]
 
     with open('data.csv', 'a+', newline='') as csvfile:
         spamwriter = csv.writer(csvfile, delimiter=' ',
@@ -281,7 +287,7 @@ def showMove(canvas, state, grid, root, keyManager, classifier=None, scaler=None
 
     if human:
         if isLost:
-            writeData()
+            writeData(False)
             state.pod.reset(grid)
         else:
             collisions = findSensorsCollisions(state.pod,grid)
@@ -290,9 +296,11 @@ def showMove(canvas, state, grid, root, keyManager, classifier=None, scaler=None
             y.append(output)
             print(distances, output)
         if isWin:
-            writeData()
+            writeData(True)
             state.pod.reset(grid)
     else:
+        if isWin:
+            state.pod.reset(grid)
         if isLost:
             c = train()
             scaler = c[0]
@@ -325,24 +333,24 @@ def main():
     grid = [
  "###############################",
  "#S      #         #       #   #",
- "##### # ### ##### # ##### # ###",
+ "##### # # # ### # # ##### # # #",
  "#     #     #   # # #     #   #",
- "# ########### ### # ##### # # #",
+ "# # ######### ### # # ### # # #",
  "# #     #       # # #   # # # #",
- "# ##### # ##### # # # # # ### #",
+ "# ##### # ##### # # # # # # # #",
  "#     # #     #   #   # #   # #",
- "# ### # ##### ##### ### ### # #",
- "#   # #     # #   # # #   # # #",
+ "# ### # ##### ### # # # ### # #",
+ "#     #     # #   # # #   # # #",
  "##### # ### # # ### # ### # # #",
  "#     # #   # #     #   # #   #",
- "####### # ### # ##### # # ### #",
- "#       # # # #       # #   # #",
- "# # ##### # # ######### ### # #",
- "# #   #     #   #     #   # # #",
+ "# ##### # ### # ##### # # ### #",
+ "#       # #   #       # #   # #",
+ "# # ### # # # ######### ### # #",
+ "# #   #     #         #     # #",
  "# ### ### ##### ##### # ### # #",
- "# # #   # #   #     #   #   # #",
+ "# # #   #     #     #   #   # #",
  "# # ### ### # ##### ##### ### #",
- "#     #     #     9       #   #",
+ "#           #     9           #",
  "###############################"
 ]
 
