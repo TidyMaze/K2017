@@ -28,6 +28,8 @@ ROTATE_ANGLE = 5
 
 NB_TURNS_ALIVE = 30
 
+MAX_AGE = 1980
+
 WINDOW_HEIGHT = 800
 WINDOW_WIDTH = 1000
 
@@ -55,6 +57,7 @@ class Pod:
         self.line = None
         self.sensorsDst = []
         self.sensorsDraw = []
+        self.age = 0
 
     def updateDraw(self,canvas,grid):
         # print("update draw")
@@ -85,6 +88,10 @@ class Pod:
             updateCollision(i, item)
 
     def reset(self,grid):
+        global X,y
+
+        self.age = 0
+
         startGridPoint = [Point(j,i) for i in range(len(grid)) for j in range(len(grid[i])) if grid[i][j] == 'S'][0]
         # print(startGridPoint)
 
@@ -98,6 +105,9 @@ class Pod:
         speedY = math.sin(math.radians(self.angle))*SPEED
 
         self.speed = Vector(speedX,speedY)
+
+        X = []
+        y = []
 
     def __str__(self):
         return 'position : ' + str(self.position) + ', speed : ' + str(self.speed) + ', angle : ' + str(self.angle) + ', power : ' + str(self.power)
@@ -210,7 +220,7 @@ def train():
             Xextracted.append(list(map(int,row[0:9])))
             yextracted.append(list(map(int,row[9:10])))
 
-    classifier = MLPClassifier(hidden_layer_sizes=(NB_SENSORS,NB_SENSORS,NB_SENSORS), max_iter=800,learning_rate_init=0.0001)
+    classifier = MLPClassifier(hidden_layer_sizes=(NB_SENSORS,NB_SENSORS,NB_SENSORS), max_iter=1600,learning_rate_init=0.0001)
 
     # INPUT : X et y
 
@@ -228,7 +238,7 @@ def train():
     classifier.fit(X_train, y_train.ravel())
     score = classifier.score(X_test, y_test)
 
-    print("Weights : ", classifier.coefs_)
+    # print("Weights : ", classifier.coefs_)
 
     y_pred = classifier.predict(Xnp)
 
@@ -238,6 +248,8 @@ def train():
 
 def writeData(won):
     global X,y
+
+    # print("X : ", X, ", y : ", y)
 
     assert len(X) == len(y)
 
@@ -251,8 +263,6 @@ def writeData(won):
         spamwriter = csv.writer(csvfile, delimiter=' ',
                             quotechar='|', quoting=csv.QUOTE_MINIMAL)
         spamwriter.writerows(dataToWrite)
-        X = []
-        y = []
 
 def showMove(canvas, state, grid, root, keyManager, classifier=None, scaler=None):
     # print("SHOW_MOVE")
@@ -274,10 +284,17 @@ def showMove(canvas, state, grid, root, keyManager, classifier=None, scaler=None
         distances = list(map(lambda c: c[0],collisions))
         X_scaled = scaler.transform(np.array(distances).reshape(1, -1))
         y_pred = classifier.predict(X_scaled)
-        # print("Pred : ", y_pred)
 
-        if y_pred[0] == 1: state.pod.angle -= ROTATE_ANGLE
-        elif y_pred[0] == 2: state.pod.angle += ROTATE_ANGLE
+        output = [y_pred[0]]
+
+        if output[0] == 1: state.pod.angle -= ROTATE_ANGLE
+        elif output[0] == 2: state.pod.angle += ROTATE_ANGLE
+
+    collisions = findSensorsCollisions(state.pod,grid)
+    distances = list(map(lambda c: c[0],collisions))
+    X.append(distances)
+    y.append(output)
+    print(distances, output)
 
     state = updateGame(state, state.pod.angle, state.pod.power)
     state.pod.updateDraw(canvas,grid)
@@ -285,27 +302,22 @@ def showMove(canvas, state, grid, root, keyManager, classifier=None, scaler=None
     isLost = lost(state,grid)
     isWin = win(state, grid)
 
-    if human:
-        if isLost:
-            writeData(False)
-            state.pod.reset(grid)
-        else:
-            collisions = findSensorsCollisions(state.pod,grid)
-            distances = list(map(lambda c: c[0],collisions))
-            X.append(distances)
-            y.append(output)
-            print(distances, output)
-        if isWin:
-            writeData(True)
-            state.pod.reset(grid)
-    else:
-        if isWin:
-            state.pod.reset(grid)
-        if isLost:
-            c = train()
-            scaler = c[0]
-            classifier = c[1]
-            state.pod.reset(grid)
+    if isLost:
+        writeData(False)
+        state.pod.reset(grid)
+    if isWin:
+        writeData(True)
+        state.pod.reset(grid)
+
+    # print("Age : ", state.pod.age)
+
+    if (not human) and state.pod.age > MAX_AGE:
+        state.pod.reset(grid)
+
+    if (isLost or isWin) and (not human):
+        c = train()
+        scaler = c[0]
+        classifier = c[1]
     canvas.after(math.floor(1000/33), lambda : showMove(canvas, state, grid, root, keyManager, classifier, scaler))
 
 def updateGame(state, angle, power):
@@ -317,6 +329,7 @@ def updateGame(state, angle, power):
     newState.pod.sensorsDraw = state.pod.sensorsDraw
     newState.pod.angle = angle
     newState.pod.power = power
+    newState.pod.age = state.pod.age
 
     speedX = math.cos(math.radians(newState.pod.angle))*SPEED
     speedY = math.sin(math.radians(newState.pod.angle))*SPEED
@@ -327,6 +340,9 @@ def updateGame(state, angle, power):
     # newState.history = list(state.history)
     # newState.history.append((angle,power))
     # print('updating : after : ' + str(newState))
+
+    newState.pod.age += 1
+
     return newState
 
 def main():
